@@ -98,12 +98,12 @@ SiString stringToLower(const SiString& input) {
 	return lowercase;
 }
 
-string convert_name(const string& original_name,section_map conversions) {
+string convert_name(string& original_name,section_map conversions) {
 	SiString lowerName(stringToLower(original_name));
 
 	if (conversions.empty() || conversions.count(lowerName) == 0) {
 		// No conversions to perform
-		return lowerName;
+		return original_name;
 	}
 	return conversions[lowerName];
 }
