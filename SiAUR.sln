@@ -1,7 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SiAUR", "SiAUR\SiAUR.vcxproj", "{F483D1E9-78B0-4F07-86EE-2836A49FB188}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SiConf", "..\SiLib\SiConf\SiConf.vcxproj", "{26F98B55-1335-4623-A470-CD89321822EF}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SiLog", "..\SiLib\SiLog\SiLog.vcxproj", "{50BB0FB4-0276-480E-B116-2A7E30FD2E45}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,6 +23,18 @@ Global
 		{F483D1E9-78B0-4F07-86EE-2836A49FB188}.Release|Win32.Build.0 = Release|Win32
 		{F483D1E9-78B0-4F07-86EE-2836A49FB188}.Release|x64.ActiveCfg = Release|x64
 		{F483D1E9-78B0-4F07-86EE-2836A49FB188}.Release|x64.Build.0 = Release|x64
+		{26F98B55-1335-4623-A470-CD89321822EF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{26F98B55-1335-4623-A470-CD89321822EF}.Debug|Win32.Build.0 = Debug|Win32
+		{26F98B55-1335-4623-A470-CD89321822EF}.Debug|x64.ActiveCfg = Debug|Win32
+		{26F98B55-1335-4623-A470-CD89321822EF}.Release|Win32.ActiveCfg = Release|Win32
+		{26F98B55-1335-4623-A470-CD89321822EF}.Release|Win32.Build.0 = Release|Win32
+		{26F98B55-1335-4623-A470-CD89321822EF}.Release|x64.ActiveCfg = Release|Win32
+		{50BB0FB4-0276-480E-B116-2A7E30FD2E45}.Debug|Win32.ActiveCfg = Debug|Win32
+		{50BB0FB4-0276-480E-B116-2A7E30FD2E45}.Debug|Win32.Build.0 = Debug|Win32
+		{50BB0FB4-0276-480E-B116-2A7E30FD2E45}.Debug|x64.ActiveCfg = Debug|Win32
+		{50BB0FB4-0276-480E-B116-2A7E30FD2E45}.Release|Win32.ActiveCfg = Release|Win32
+		{50BB0FB4-0276-480E-B116-2A7E30FD2E45}.Release|Win32.Build.0 = Release|Win32
+		{50BB0FB4-0276-480E-B116-2A7E30FD2E45}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

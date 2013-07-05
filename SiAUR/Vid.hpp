@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 
+/*
 #ifndef NDEBUG
 #define UDLOC "\\\\localhost\\sharez\\"
 #define TVUDLOC "\\\\localhost\\sharez\\Tv Shows\\"
@@ -10,18 +11,31 @@
 #define UDLOC "\\\\localhost\\Videos\\"
 #define TVUDLOC "\\\\localhost\\Videos\\Tv Shows\\"
 #endif
+*/
 
 class VidBase {
 	friend inline bool operator==(const VidBase& rhs,const VidBase& lhs);
 public:
-	VidBase(std::string &_name, std::string &rar, std::string &Dloc,int s = -1, int e = -1):UDloc(UDLOC + Dloc ), rarLoc(rar),rarDir(""),name(_name),sceneName(""), season(s), ep(e) {}
+	VidBase(std::string &_name, std::string &rar, std::string &Dloc,int s = -1, int e = -1)
+		:UDloc( Dloc ), rarLoc(rar),rarDir(""),name(_name),sceneName(""), season(s), ep(e) {}
 
-	const std::string& getName() { return name; }
-std::string RarLoc(VidBase& video );
-std::string RarLoc();
+	const std::string& getName() const { return name; }
+
+	std::string RarLoc(VidBase& video ) const;
+	std::string RarLoc() const;
+
+	
+	static const std::string& getBaseUDLoc() {
+		return mBaseLoc;
+	}
+
+	static void initBaseLoc(std::string& baseLoc) {
+		mBaseLoc = std::string(baseLoc);
+	}
 
 //protected:
 	//base urar directory to use
+	static std::string mBaseLoc;
 	std::string UDloc;
 	//lcoation of rar
 	std::string rarLoc;

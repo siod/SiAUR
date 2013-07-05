@@ -11,16 +11,20 @@
 #include "Show.h"
 #include "Movie.h"
 
-#ifndef NDEBUG
-#define WINRAR "\"C:\\Program Files\\WinRAR\\Rar.exe\""
-#else
-#define WINRAR "\"E:\\Program Files\\WinRAR\\Rar.exe\""
-#endif
+#include "../../SiLib/SiConf/reader.h"
+#include "../../SiLib/SiLog/logging.h"
+#pragma comment(lib, "SiConf.lib")
+#pragma comment(lib, "SiLog.lib")
+//#define DRY_TESTING
+
+#define Log Logging::Log
+#define LogLine Logging::LogLine
 
 using std::cout;
 using std::cerr;
 using std::endl;
 using std::string;
+using std::wstring;
 using std::vector;
 using std::unordered_set;
 using std::tr1::regex;
@@ -28,10 +32,27 @@ using std::stringstream;
 namespace regex_consts = std::tr1::regex_constants;
 
 typedef VidBase (*RegSearchFunc)(const char* ,string&);
+
+enum JOB_TYPE {
+	TV,
+	TV_PACK,
+	MOVIE,
+	MOVIE_PACK,
+	INVALID };
+
 // Possibly use a stack?
 vector<VidBase> videos;
 unordered_set<string> vidType;
-	
+unordered_set<string> bannedFolders;
+ConfReader config;
+section_map& globalsMap = section_map();
+section_map& showsMap = section_map();
+section_map& moviesMap = section_map();
+regex showRegex;
+regex movieRegex;
+
+std::string winrar;
+
 inline void removeInvalidLastChar(string &str) {
 	//HACK remove '.' || '-' that's left on some shows
 	//TODO FIX REGEX
@@ -53,11 +74,39 @@ void setupVidType() {
 
 }
 
+void setupBannedFolders() {
+	bannedFolders.insert("Sample");
+	bannedFolders.insert("sample");
+
+}
+
 inline bool checkDelimiters(string& input) {
 	return (vidType.find(input) != vidType.end());
 }
 
+inline bool isBannedFolder(string& input) {
+	return ( input[0] == '.' || bannedFolders.find(input) != bannedFolders.end());
+}
 
+
+
+SiString stringToLower(const SiString& input) {
+	SiString lowercase(input);
+	for (size_t i = 0; i !=  lowercase.length();i++) {
+		lowercase[i] = tolower(lowercase[i]);
+	}
+	return lowercase;
+}
+
+string convert_name(const string& original_name,section_map conversions) {
+	SiString lowerName(stringToLower(original_name));
+
+	if (conversions.empty() || conversions.count(lowerName) == 0) {
+		// No conversions to perform
+		return lowerName;
+	}
+	return conversions[lowerName];
+}
 
 string checkForVideoType(const char* str,string& failString) {
 	string tokens;
@@ -88,49 +137,53 @@ string checkForVideoType(const char* str,string& failString) {
 				break;
 		}
 	}
-	// return failString, unable to parse
+	// unable to parse
 	return failString;
 }
 
 VidBase regSearch(const char* str,string &rar) {
 	string showname;
 	int season,ep;
-	//string of win, removes year from show name
-	//std::tr1::regex strOfWin("([a-zA-Z\\._-]+)(?:20\\d\\d)?\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[_\\.-])?(?:ep?|x)?(?:[0-9]{1,3})?\\.",
+	//regex string that decodes tv show name and removes year from show name
+	//  "([a-zA-Z\\._-]+)(?:20\\d\\d)?\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[_\\.-])?(?:ep?|x)?(?:[0-9]{1,3})?\\."
+	// retired in favor of 
+	// "([a-zA-Z0-9\\._-]+)\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[\\._-]+((ep?)|x)[0-9]{1,3})?\\."
+
+	//regex strOfWin("([a-zA-Z0-9\\._-]+)\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[\\._-]+((ep?)|x)[0-9]{1,3})?\\.",
 								//regex_consts::ECMAScript | regex_consts::icase);
-	std::tr1::regex strOfWin("([a-zA-Z\\._-]+)(?:20\\d\\d)?\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[\\._-]+((ep?)|x)[0-9]{1,3})?\\.",
-								regex_consts::ECMAScript | regex_consts::icase);
 	//string format("$1 $2 $4");
-	string test;
-	if (std::tr1::regex_search(str,strOfWin)) {
-		test = std::tr1::regex_replace(string(str),strOfWin,
+	string decoded_showinfo;
+	if (regex_search(str,showRegex)) {
+		decoded_showinfo = regex_replace(string(str),showRegex,
 										string("$1 $2 $3")/*format*/,
 										regex_consts::match_default | regex_consts::format_no_copy);
 	} else {
-		test = "AAA-Uknown 1 1";
+		decoded_showinfo = "AAA-Uknown 1 1";
 	}
-	std::stringstream lol(test);
+	std::stringstream lol(decoded_showinfo);
 	lol >> showname >> season >> ep;
 
-	showname = std::tr1::regex_replace(showname,std::tr1::regex("[\\._-]+"),string(" "));
+	showname = regex_replace(showname,regex("[\\._-]+"),string(" "));
 	removeInvalidLastChar(showname);
+	showname = convert_name(showname,showsMap);
 	return Show::create(showname,rar,season,ep);
 }
 
 VidBase movieRegSearch(const char* str, string &rar) {
 	string movieName;
-	std::tr1::regex strOfWin("([a-zA-Z\\d\\._-]+)\\.(19|20)\\d\\d\\.",
-								regex_consts::ECMAScript | regex_consts::icase);
-	if (std::tr1::regex_search(str,strOfWin)) {
-		movieName = std::tr1::regex_replace(string(str),strOfWin,
+	//regex strOfWin("([a-zA-Z\\d\\._-]+)\\.(19|20)\\d\\d\\.",
+								//regex_consts::ECMAScript | regex_consts::icase);
+	if (regex_search(str,movieRegex)) {
+		movieName = regex_replace(string(str),movieRegex,
 											string("$1")/*format*/,
 											regex_consts::match_default | regex_consts::format_no_copy);
 		movieName = checkForVideoType(movieName.c_str(),movieName);
 	} else {
 		movieName = checkForVideoType(str,string("Unknown-Movie"));
 	}
-	movieName = std::tr1::regex_replace(movieName,regex("[\\._-]+"),string(" "));
+	movieName = regex_replace(movieName,regex("[\\._-]+"),string(" "));
 	removeInvalidLastChar(movieName);
+	movieName = convert_name(movieName,moviesMap);
 	return Movie::create(movieName,rar);
 }
 
@@ -160,7 +213,7 @@ std::string rarFind(string &dir, bool pack,RegSearchFunc process,string& dirName
 		filename = Findz.cFileName;
 
 		// deal with packs
-		if (pack && Findz.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY && (filename != "." && filename != "..")) {
+		if (pack && Findz.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY && !isBannedFolder(filename)) {
 			rarFind(dir+filename,true,process,filename);
 		}
 		
@@ -196,81 +249,66 @@ std::string rarFind(string &dir, bool pack,RegSearchFunc process,string& dirName
 	return string("F");
 }
 
-#ifndef NDEBUG
-
-void singleMovieTest(const char* raw,const char* name) {
-	//Movie temp(movieRegSearch(raw, string()));
-	VidBase temp(movieRegSearch(raw, string()));
-	cout << name << " test " << ((temp == Movie::create(string(name),string())) ? "succeeded" : ("failed name = \'" + temp.getName() + "\'"));
-	cout << "\n";
-
-}
-
-void singleShowTest(const char* raw,const char* name,int season, int ep) {
-	VidBase temp(regSearch(raw,string()));
-	cout << name << " test " << ((temp == Show::create(string(name),string(),season,ep)) ? "succeeded" : ("failed name = \'" + temp.getName() + "\'"));
-	cout << "\n";
-
-}
-void test(int argc,char** args) {
-	cout << "\n\nTv show testing\n\n\n";
-	singleShowTest("Top_Gear.16x04.720p_HDTV_x264-FoV","Top Gear",16,04);
-	singleShowTest("The.Simpsons.S22E13.HDTV.XviD-LOL","The Simpsons",22,13);
-	singleShowTest("Star.Wars.The.Clone.Wars.2008.S03E19.720p.HDTV.x264-IMMERSE","Star Wars The Clone Wars",03,19);
-	singleShowTest("\\\\DARTH-SIDIOUS\\Torrentz\\Fringe.S03E20.720p.HDTV.X264-DIMENSION","Fringe",03,20);
-	singleShowTest("Doctor_Who_2005.6x01.The_Impossible_Astronaut_Part1.720p_HDTV_x264-FoV","Doctor Who",06,01);
-	singleShowTest("Supernatural.s06e21-e22.720p.hdtv.x264-2hd","Supernatural",06,21);
-
-	// Movie testing
-	cout << "\n\nMovie testing\n\n\n";
-	singleMovieTest("Rango.2011.EXTENDED.1080p.Bluray.x264-VeDeTT","Rango");
-	singleMovieTest("Jackass.3.5.2011.1080p.BluRay.X264-7SinS", "Jackass 3 5");
-	singleMovieTest("Ricky.Steamboat.The.Life.Story.of.the.Dragon.2010.DVDRip.XviD-SPRiNTER", "Ricky Steamboat The Life Story of the Dragon");
-	singleMovieTest("Living.in.Emergency.Stories.of.Doctors.Without.Borders.2008.DOCU.DVDRip.XviD-SPRiNTER",
-					"Living in Emergency Stories of Doctors Without Borders");
-	singleMovieTest("The.Lincoln.Lawyer.DVDRip.XviD-TARGET", "The Lincoln Lawyer");
-}
-#endif
-
-int copyNfo(string &loc,string &dest,const char* name) {
+bool copyNfo(const string &dir, const string &dest,const char* name) {
 	// copyFile Function
 	//http://msdn.microsoft.com/en-us/library/aa363851%28VS.85%29.aspx
+
+#ifdef DRY_TESTING
+	return true;
+#endif
 	WIN32_FIND_DATA Findz;
 	ZeroMemory( &Findz, sizeof(Findz) );
 	HANDLE fred;
 	ZeroMemory( &fred, sizeof(fred) );
 
-	string nfoLoc ("\\");
+	string nfoDir ("\\");
 	BOOL cont = TRUE;
-	fred = FindFirstFile((loc+"\\*").c_str(),&Findz);
+	fred = FindFirstFile((dir+"\\*").c_str(),&Findz);
 	while (fred != INVALID_HANDLE_VALUE && cont) {
 		string filename(Findz.cFileName);
 		if (filename.rfind(".nfo",filename.size()-1,4) != string::npos) {
-			nfoLoc += filename;
+			nfoDir += filename;
 			break;
 		}
 		cont = FindNextFile(fred,&Findz);
 	}
 
 	if (fred == INVALID_HANDLE_VALUE) 
-		return -1;
+		return false;
 
 #ifndef NDEBUG
-	cout << loc+nfoLoc << endl;
+	cout << dir+nfoDir << endl;
 	cout << dest+name << endl;
 #endif
-	if (CopyFile((loc+nfoLoc).c_str(), (dest + name + ".nfo").c_str(), TRUE))
-		return 42;
+	if (CopyFile((dir+nfoDir).c_str(), (dest + name + ".nfo").c_str(), TRUE))
+		return true;
 
-	cout << GetLastError() << endl;
 
-	return 0;
+	DWORD error(GetLastError());
+	if (error == 0x50) {
+		LogLine("File already exists",Logging::LOG_INFO);
+		return true;
+	} else {
+		LogLine("Unable to copy nfo error code: " +
+				std::to_string(static_cast<_ULonglong>(error)),Logging::LOG_ERROR);
+	}
+
+	return false;
 }
 
-int callWinRar(string str) {
+bool callWinRar(const string& loc,const string& dest) {
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
-	LPSTR cmd = _tcsdup(str.c_str());
+	string comString(winrar + " e -y \"" + loc + "\" \"" + dest + "\"");
+	LPSTR cmd = _tcsdup(comString.c_str());
+
+#ifndef NDEBUG
+	cout << comString << endl;
+#endif
+
+#ifdef DRY_TESTING
+	return true;
+#endif
 
 	ZeroMemory( &si, sizeof(si) );
     si.cb = sizeof(si);
@@ -286,189 +324,228 @@ int callWinRar(string str) {
 		NULL,
 		&si,
 		&pi )) {
-			cerr << "CreateProcess failed " << GetLastError() << endl;
-			return -1;
+			LogLine("Unable to create winrar process error code: " +
+					std::to_string(static_cast<_ULonglong>(GetLastError()))
+					,Logging::LOG_ERROR);
+			return false;
 	}
 	WaitForSingleObject( pi.hProcess,INFINITE);
+	DWORD exitCode (254);
+	/*	Valid return codes from winrar
+	0	Successful
+	1	Warning
+	2	fatal error
+	3	CRC error
+	4	Attempt to modify locked archive
+	5	Write error
+	6	File open error
+	7	Wrong commandline options
+	8	Not enough memory
+	9	File create error
+	255 User Break
+
+
+
+	*/
+	GetExitCodeProcess(pi.hProcess,&exitCode);
+	if (exitCode != 0) {
+		LogLine(string("Winrar error :" + std::to_string(static_cast<_ULonglong>(exitCode)))
+			,Logging::LOG_ERROR);
+	}
 	//close process and thread handles.
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 
-	return 42;
+	return (exitCode == 0);
 }
 
-int singleShow(int argc,char** args,std::ofstream& log) {
+bool extractShow(VidBase show) {
+	if (callWinRar(show.RarLoc(),Show::URLoc(show))) {
+		LogLine(string("SUCCESS : " + show.name + "\t from " + show.RarLoc() + "\t to " + Show::URLoc(show)),Logging::LOG_INFO);
+		return true;
+	} else {
+		LogLine(string("FAILURE : " + show.name + "\t from " + show.RarLoc() + "\t to " + Show::URLoc(show)),Logging::LOG_INFO);
+		return false;
+	}
+}
+
+int singleShow(const char* dir,const char* name) {
 	
-	string rarName(rarFind(string(args[3]),false,NULL,string()));
+	string rarName(rarFind(string(dir),false,NULL,string()));
 	if (rarName==string("F")) {
-		log.close();
 		return 1;
 	}
-	VidBase blah(regSearch(args[2],rarName));
-	
-	std::stringstream cmd;
-	cmd << WINRAR << " e -y " << "\"" << blah.RarLoc() << "\"" << " " << "\"" << Show::URLoc(blah) << "\"";
-#ifndef NDEBUG
-	cout << cmd.str() << endl;
-#else
-	if (callWinRar(cmd.str())==42) {
-		cout << "Huge Success" << endl;
-		log << cmd.str() << "\n" << "Huge Success" << endl;
+	VidBase blah(regSearch(name,rarName));
+	if (extractShow(blah))
 		return 0;
-	}
-#endif
-
-	return -1;
+	else
+		return -1;
 }
 
-int singleMovie(int argc,char** args,std::ofstream& log) {
-
-	string rarName(rarFind(string(args[3]),false,NULL,string()));
-	if (rarName==string("F")) {
-		log.close();
-		return 1;
-	}
-	VidBase blah(movieRegSearch(args[2],rarName));
-	
-	std::stringstream cmd;
-	cmd << WINRAR << " e -y " << "\"" << blah.RarLoc() << "\"" << " " << "\"" << Movie::URLoc(blah) << "\"";
-#ifndef NDEBUG
-	cout << cmd.str() << endl;
-#else
-	if (callWinRar(cmd.str())==42) {
-		cout << "Huge Success" << endl;
-		log << cmd.str() << "\n" << "Huge Success" << endl;
-		if (copyNfo(string(args[3]),Movie::URLoc(blah),args[2]) == 42) {
-			log << "Nfo copied\n";
-		} else {
-			log << "Unable to copy nfo\n";
-		}
-		return 0;
-	}
-#endif
-
-	return -1;
-}
-
-
-int MoviePack(int argc,char** args,std::ofstream& log) {
-	unsigned int status(0);
-	rarFind(string(args[3]),true,movieRegSearch,string());
-	vector<VidBase>::iterator iter = videos.begin();
-	while (iter != videos.end()) {
-		std::stringstream cmd;
-		cmd << WINRAR << " e -y " << "\"" << iter->RarLoc() << "\"" << " " << "\"" << Movie::URLoc(*iter) << "\"";
-#ifndef NDEBUG
-		cout << cmd.str() << endl;
-#else
-		if (callWinRar(cmd.str())==42) {
-			cout << "Huge Success\n";
-			log << cmd.str() << "\n" << "Huge Success\n";
-			copyNfo(iter->rarDir,Movie::URLoc(*iter),iter->sceneName.c_str());
-			++status;
-		} else {
-			cout << "Winrar Failure";
-			log << cmd.str() << "\t" << "Failed\n";
-		}
-#endif
-		++iter;
-	}
-
-	if (status == videos.size())
-		return 0;
-
-	return -1;
-}
-
-int ShowPack(int argc,char** args,std::ofstream& log) {
+int ShowPack(const char* dir,const char* name) {
 	unsigned int status(0);
 	videos.reserve(30);
-	rarFind(string(args[3]),true,regSearch,string());
+	rarFind(string(dir),true,regSearch,string());
 	vector<VidBase>::iterator iter = videos.begin();
 	while (iter != videos.end()) {
-		std::stringstream cmd;
-		cmd << WINRAR << " e -y " << "\"" << iter->RarLoc() << "\"" << " " << "\"" << Show::URLoc(*iter) << "\"";
-#ifndef NDEBUG
-		cout << cmd.str() << endl;
-#else
-		if (callWinRar(cmd.str())==42) {
-			cout << "Huge Success\n";
-			log << cmd.str() << "\n" << "Huge Success\n";
+		if (extractShow(*iter))
 			++status;
-		} else {
-			cout << "Winrar Failure";
-			log << cmd.str() << "\t" << "Failed\n";
-		}
-#endif
 		++iter;
 	}
-	if (status == videos.size()) {
-		return 0;
-	}
+	return (status == videos.size()) ? 0 : -1;
+}
 
-	return -1;
+bool extractMovie(const VidBase& movie,const char* sourceDir,const char* sceneName) {
+	if (callWinRar(movie.RarLoc(),Movie::URLoc(movie))) {
+		LogLine("SUCCESS : " + movie.name + "\t from " + movie.RarLoc() + 
+				"\t to " + Movie::URLoc(movie),Logging::LOG_INFO);
+			if (copyNfo(sourceDir,Movie::URLoc(movie),sceneName)) {
+				LogLine("SUCCESS : nfo copied",Logging::LOG_INFO);
+			} else {
+				LogLine("FAILURE : nfo not copied",Logging::LOG_INFO);
+			}
+		return true;
+	} else {
+		LogLine("FAILURE : " + movie.name + "\t from " + movie.RarLoc() + 
+				"\t to " + Movie::URLoc(movie),Logging::LOG_INFO);
+		return false;
+	}
+}
+
+int singleMovie(const char* dir,const char* name) {
+
+	string rarName(rarFind(string(dir),false,NULL,string()));
+	if (rarName==string("F")) {
+		return 1;
+	}
+	VidBase blah(movieRegSearch(name,rarName));
+	if (extractMovie(blah,dir,name))
+		return 0;
+	else
+		return -1;
 }
 
 
-int main(int argc,char** args) {
+int MoviePack(const char* dir,const char* name) {
+	unsigned int status(0);
+	rarFind(string(dir),true,movieRegSearch,string());
+	vector<VidBase>::iterator iter = videos.begin();
+	while (iter != videos.end()) {
+		if (extractMovie(*iter,dir,iter->sceneName.c_str()))
+			++status;
+		++iter;
+	}
+
+	return (status == videos.size()) ? 0 : -1;
+}
+
+
+JOB_TYPE getJobType(const char* sJobType) {
+	if (strcmp(sJobType,"TV-RSS")==0) {
+		return TV;
+	} 
+	if (strcmp(sJobType,"MOVIE")==0) {
+		return MOVIE;
+	}
+	if (strcmp(sJobType,"TV-PACK")==0) {
+		return TV_PACK;
+	}
+	if (strcmp(sJobType,"MOVIE-PACK")==0) {
+		return MOVIE_PACK;
+	}
+
+	return INVALID;
+}
+
+bool setup(const char* iniName) {
+	if (!config.init(iniName))
+		return false;
 	setupVidType();
+	setupBannedFolders();
+	globalsMap = *config.safe_get_section("globals");
+	if (globalsMap.empty()) {
+		cerr << "no config file" << endl;
+		return false;
+	}
+	showsMap = *config.safe_get_section("show_conversions");
+	moviesMap = *config.safe_get_section("movie_conversions");
+
+	VidBase::initBaseLoc(globalsMap["base_loc"]);
+	showRegex = regex(globalsMap["show_regex"], regex_consts::ECMAScript | regex_consts::icase);
+	movieRegex = regex(globalsMap["movie_regex"], regex_consts::ECMAScript | regex_consts::icase);
+	winrar = globalsMap["winrar"];
+
+	return true;
+}
+
 #ifndef NDEBUG
-	char* logName("SiUAR.log");
-#else
-	char* logName("E:\SiUAR.log");
+ bool test();
 #endif
-	std::ofstream log(logName,std::ofstream::app | std::ofstream::out);
+int main(int argc,char** args) {
+#ifndef NDEBUG
+	const char* iniName("SiAUR.ini");
+#else
+	const char* iniName("E:\\SiAUR.ini");
+#endif
+	if (!setup(iniName))
+		return -1;
+
+#ifndef NDEBUG
+	Logging::init(Logging::LOG_DEBUG,true,true,globalsMap["log_name"]);
+#else
+	Logging::init(Logging::LOG_DEBUG,false,true,globalsMap["log_name"]);
+#endif
+
+	// Check if log creation was successful
+	if (!Logging::good()) {
+		cerr << "ERROR: Unable to create log " << endl;
+		return -1;
+	}
+
+	for (int i = 1;i!=argc;++i) {
+		Log(args[i],Logging::LOG_INFO);
+		Log(" ",Logging::LOG_INFO);
+	}
+	Log("\n",Logging::LOG_INFO);
+
 	if (argc < 3) {
-		if (log) {
-			log << "Invalid args" << endl;
-			log.close();
-		}
+		LogLine("Use: <JobType> <name> <location>",Logging::LOG_ERROR);
+		Logging::destroy();
 		return 1;
 	}
 
-	// Check if log creation was successful
-	if (log) {
-		for (int i = 1;i!=argc;++i) {
-			log << args[i] << " ";
-		}
-		log << endl;
-	} else {
-		cerr << "unable to create log " << endl;
-		return -1;
-	}
 	
 #ifndef NDEBUG
 	//testing code
-	test(argc,args);
+	if (!test())
+		return 0;
 #endif
-	int status;
-	if (strcmp(args[1],"TV-RSS")==0) {
-		status = singleShow(argc,args,log);
-	} else if (strcmp(args[1],"MOVIE")==0) {
-		status = singleMovie(argc,args,log);
-	} else if (strcmp(args[1],"TV-PACK")==0) {
-		status = ShowPack(argc,args,log);
-	} else if (strcmp(args[1],"MOVIE-PACK")==0) {
-		status = MoviePack(argc,args,log);
-	} else {
-			log << "Invalid args" << endl;
-			log.close();
+
+	int status = -1;
+	JOB_TYPE jobType = getJobType(args[1]);
+	switch (jobType) {
+		case TV:
+			status = singleShow(args[3],args[2]);
+			break;
+		case TV_PACK:
+			status = ShowPack(args[3],args[2]);
+			break;
+		case MOVIE:
+			status = singleMovie(args[3],args[2]);
+			break;
+		case MOVIE_PACK:
+			status = MoviePack(args[3],args[2]);
+			break;
+
+		case INVALID:
+			LogLine("Invalid job type",Logging::LOG_ERROR);
+			Logging::destroy();
 			return 1;
-	}
 
-	switch (status) {
-	case 0:
-		break;
-	case 1:
-		log << "Unable to find valid show" << endl;
-		break;
-	case -1:
-		log << "Failure (Winrar)" << endl;
-		cerr << "Winrar failed\n";
-		break;
-
+		default:
+			break;
 	}
-	log.close();
+	Logging::destroy();
 #ifndef NDEBUG
 	std::cin.get();
 #endif
