@@ -3,20 +3,10 @@
 #include <string>
 #include <sstream>
 
-/*
-#ifndef NDEBUG
-#define UDLOC "\\\\localhost\\sharez\\"
-#define TVUDLOC "\\\\localhost\\sharez\\Tv Shows\\"
-#else
-#define UDLOC "\\\\localhost\\Videos\\"
-#define TVUDLOC "\\\\localhost\\Videos\\Tv Shows\\"
-#endif
-*/
-
 class VidBase {
 	friend inline bool operator==(const VidBase& rhs,const VidBase& lhs);
 public:
-	VidBase(std::string &_name, std::string &rar, std::string &Dloc,int s = -1, int e = -1)
+	VidBase(const std::string &_name, const std::string &rar, const std::string &Dloc,int s = -1, int e = -1)
 		:UDloc( Dloc ), rarLoc(rar),rarDir(""),name(_name),sceneName(""), season(s), ep(e) {}
 
 	const std::string& getName() const { return name; }

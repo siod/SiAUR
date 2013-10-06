@@ -125,11 +125,11 @@
     <ClCompile Include="Show.cpp" />
     <ClCompile Include="tests.cpp" />
     <ClCompile Include="Vid.cpp" />
+    <ClCompile Include="windows.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Movie.h" />
     <ClInclude Include="Show.h" />
-    <ClInclude Include="SiCom.hpp" />
     <ClInclude Include="Vid.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

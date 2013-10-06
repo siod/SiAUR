@@ -3,8 +3,6 @@
 #include <cstring>
 #include <regex>
 #include <sstream>
-#include <Windows.h>
-#include <tchar.h>
 #include <vector>
 #include <unordered_set>
 #include "Vid.hpp"
@@ -15,10 +13,13 @@
 #include "../../SiLib/SiLog/logging.h"
 #pragma comment(lib, "SiConf.lib")
 #pragma comment(lib, "SiLog.lib")
+
 //#define DRY_TESTING
 
+#ifndef Log
 #define Log Logging::Log
 #define LogLine Logging::LogLine
+#endif
 
 using std::cout;
 using std::cerr;
@@ -31,7 +32,7 @@ using std::tr1::regex;
 using std::stringstream;
 namespace regex_consts = std::tr1::regex_constants;
 
-typedef VidBase (*RegSearchFunc)(const char* ,string&);
+typedef void (*ProcessFunc)(const string& ,const string& ,const string&);
 
 enum JOB_TYPE {
 	TV,
@@ -43,22 +44,21 @@ enum JOB_TYPE {
 // Possibly use a stack?
 vector<VidBase> videos;
 unordered_set<string> vidType;
-unordered_set<string> bannedFolders;
 ConfReader config;
-section_map& globalsMap = section_map();
-section_map& showsMap = section_map();
-section_map& moviesMap = section_map();
+section_map* globalsMap(NULL);
+section_map* showsMap(NULL);
+section_map* moviesMap(NULL);
 regex showRegex;
 regex movieRegex;
 
-std::string winrar;
-
-inline void removeInvalidLastChar(string &str) {
-	//HACK remove '.' || '-' that's left on some shows
-	//TODO FIX REGEX
-	if (str[str.size()-1] == ' ')
-		str.erase(str.size()-1);
-}
+//Windows defines
+bool callWinRar(const string& loc,const string& dest);
+bool copyNfo(const string &dir, const string &dest,const char* name);
+bool findFiles(string dir, bool pack,void (*process)(const string&,const string&,const string&) ,
+			   const string& extension= "",const string& dirName = "");
+void setupBannedFolders();
+void setWinrarLoc(const string& loc);
+// End windows defines
 
 void setupVidType() {
 	vidType.insert("PROPER");
@@ -74,31 +74,22 @@ void setupVidType() {
 
 }
 
-void setupBannedFolders() {
-	bannedFolders.insert("Sample");
-	bannedFolders.insert("sample");
-
-}
-
 inline bool checkDelimiters(string& input) {
 	return (vidType.find(input) != vidType.end());
 }
 
-inline bool isBannedFolder(string& input) {
-	return ( input[0] == '.' || bannedFolders.find(input) != bannedFolders.end());
-}
 
 
 
 SiString stringToLower(const SiString& input) {
 	SiString lowercase(input);
 	for (size_t i = 0; i !=  lowercase.length();i++) {
-		lowercase[i] = tolower(lowercase[i]);
+		lowercase[i] = char(tolower(lowercase[i]));
 	}
 	return lowercase;
 }
 
-string convert_name(string& original_name,section_map conversions) {
+string convert_name(string& original_name,section_map& conversions) {
 	SiString lowerName(stringToLower(original_name));
 
 	if (conversions.empty() || conversions.count(lowerName) == 0) {
@@ -108,7 +99,7 @@ string convert_name(string& original_name,section_map conversions) {
 	return conversions[lowerName];
 }
 
-string checkForVideoType(const char* str,string& failString) {
+string checkForVideoType(const char* str,const string& failString) {
 	string tokens;
 	tokens.reserve(255);
 	string buffer;
@@ -141,17 +132,12 @@ string checkForVideoType(const char* str,string& failString) {
 	return failString;
 }
 
-VidBase regSearch(const char* str,string &rar) {
+VidBase regSearch(const char* str,const string &rar) {
 	string showname;
 	int season,ep;
 	//regex string that decodes tv show name and removes year from show name
-	//  "([a-zA-Z\\._-]+)(?:20\\d\\d)?\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[_\\.-])?(?:ep?|x)?(?:[0-9]{1,3})?\\."
-	// retired in favor of 
-	// "([a-zA-Z0-9\\._-]+)\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[\\._-]+((ep?)|x)[0-9]{1,3})?\\."
+	// "([a-z0-9\._-]+)\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[\._-]*((ep?)|x)[0-9]{1,3})?(\.)"
 
-	//regex strOfWin("([a-zA-Z0-9\\._-]+)\\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[\\._-]+((ep?)|x)[0-9]{1,3})?\\.",
-								//regex_consts::ECMAScript | regex_consts::icase);
-	//string format("$1 $2 $4");
 	string decoded_showinfo;
 	if (regex_search(str,showRegex)) {
 		decoded_showinfo = regex_replace(string(str),showRegex,
@@ -164,15 +150,13 @@ VidBase regSearch(const char* str,string &rar) {
 	lol >> showname >> season >> ep;
 
 	showname = regex_replace(showname,regex("[\\._-]+"),string(" "));
-	removeInvalidLastChar(showname);
-	showname = convert_name(showname,showsMap);
+	showname = convert_name(showname,*showsMap);
 	return Show::create(showname,rar,season,ep);
 }
 
-VidBase movieRegSearch(const char* str, string &rar) {
+VidBase movieRegSearch(const char* str, const string &rar) {
 	string movieName;
-	//regex strOfWin("([a-zA-Z\\d\\._-]+)\\.(19|20)\\d\\d\\.",
-								//regex_consts::ECMAScript | regex_consts::icase);
+	// default "([a-z\d\._-]+\.(19|20)\d\d)(\.)"
 	if (regex_search(str,movieRegex)) {
 		movieName = regex_replace(string(str),movieRegex,
 											string("$1")/*format*/,
@@ -182,181 +166,8 @@ VidBase movieRegSearch(const char* str, string &rar) {
 		movieName = checkForVideoType(str,string("Unknown-Movie"));
 	}
 	movieName = regex_replace(movieName,regex("[\\._-]+"),string(" "));
-	removeInvalidLastChar(movieName);
-	movieName = convert_name(movieName,moviesMap);
+	movieName = convert_name(movieName,*moviesMap);
 	return Movie::create(movieName,rar);
-}
-
-void MultiProcessor(RegSearchFunc process,string& dir,string& rar,string& dirName) {
-	VidBase temp(process( dir.c_str(), rar));
-	temp.rarDir = dir;
-	temp.sceneName = dirName;
-	videos.push_back(temp);
-}
-
-std::string rarFind(string &dir, bool pack,RegSearchFunc process,string& dirName) {
-	WIN32_FIND_DATA Findz;
-	ZeroMemory( &Findz, sizeof(Findz) );
-	HANDLE fred;
-	ZeroMemory( &fred, sizeof(fred) );
-
-	dir += "\\";
-#ifndef NDEBUG
-	cout << dir << endl;
-#endif
-	fred = FindFirstFileEx((dir+"*").c_str(),FindExInfoStandard,&Findz,FindExSearchNameMatch,NULL,0);
-	BOOL cont(TRUE);
-	bool foundRar(false);
-	string filename,foundRarN;
-
-	while (fred != INVALID_HANDLE_VALUE && cont)  {
-		filename = Findz.cFileName;
-
-		// deal with packs
-		if (pack && Findz.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY && !isBannedFolder(filename)) {
-			rarFind(dir+filename,true,process,filename);
-		}
-		
-
-		if (filename.rfind(".rar",filename.size()-1,4) == string::npos) {
-			cont = FindNextFile(fred,&Findz);
-			continue;
-		} else if (filename.rfind("part01.rar",filename.size()-1,10) != string::npos) {
-#ifndef NDEBUG
-			cout << Findz.cFileName << endl;
-#endif
-			if (pack) {
-				MultiProcessor(process,dir,dir+filename,dirName);
-				return string();
-			}
-			return dir + filename;
-		} else {
-			foundRar = true;
-			foundRarN = filename;
-			cont = FindNextFile(fred,&Findz);
-		}
-	} 
-
-	if (foundRar) {
-		//only for packs
-		if (pack) {
-				MultiProcessor(process,dir,dir+foundRarN,dirName);
-				return string();
-		}
-		return dir + foundRarN;
-	}
-	std::cerr << "rar not found " << endl;
-	return string("F");
-}
-
-bool copyNfo(const string &dir, const string &dest,const char* name) {
-	// copyFile Function
-	//http://msdn.microsoft.com/en-us/library/aa363851%28VS.85%29.aspx
-
-#ifdef DRY_TESTING
-	return true;
-#endif
-	WIN32_FIND_DATA Findz;
-	ZeroMemory( &Findz, sizeof(Findz) );
-	HANDLE fred;
-	ZeroMemory( &fred, sizeof(fred) );
-
-	string nfoDir ("\\");
-	BOOL cont = TRUE;
-	fred = FindFirstFile((dir+"\\*").c_str(),&Findz);
-	while (fred != INVALID_HANDLE_VALUE && cont) {
-		string filename(Findz.cFileName);
-		if (filename.rfind(".nfo",filename.size()-1,4) != string::npos) {
-			nfoDir += filename;
-			break;
-		}
-		cont = FindNextFile(fred,&Findz);
-	}
-
-	if (fred == INVALID_HANDLE_VALUE) 
-		return false;
-
-#ifndef NDEBUG
-	cout << dir+nfoDir << endl;
-	cout << dest+name << endl;
-#endif
-	if (CopyFile((dir+nfoDir).c_str(), (dest + name + ".nfo").c_str(), TRUE))
-		return true;
-
-
-	DWORD error(GetLastError());
-	if (error == 0x50) {
-		LogLine("File already exists",Logging::LOG_INFO);
-		return true;
-	} else {
-		LogLine("Unable to copy nfo error code: " +
-				std::to_string(static_cast<_ULonglong>(error)),Logging::LOG_ERROR);
-	}
-
-	return false;
-}
-
-bool callWinRar(const string& loc,const string& dest) {
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	string comString(winrar + " e -y \"" + loc + "\" \"" + dest + "\"");
-	LPSTR cmd = _tcsdup(comString.c_str());
-
-#ifndef NDEBUG
-	cout << comString << endl;
-#endif
-
-#ifdef DRY_TESTING
-	return true;
-#endif
-
-	ZeroMemory( &si, sizeof(si) );
-    si.cb = sizeof(si);
-    ZeroMemory( &pi, sizeof(pi) );
-
-	if (!CreateProcess(NULL,
-		cmd,
-		NULL,
-		NULL,
-		FALSE,
-		0,
-		NULL,
-		NULL,
-		&si,
-		&pi )) {
-			LogLine("Unable to create winrar process error code: " +
-					std::to_string(static_cast<_ULonglong>(GetLastError()))
-					,Logging::LOG_ERROR);
-			return false;
-	}
-	WaitForSingleObject( pi.hProcess,INFINITE);
-	DWORD exitCode (254);
-	/*	Valid return codes from winrar
-	0	Successful
-	1	Warning
-	2	fatal error
-	3	CRC error
-	4	Attempt to modify locked archive
-	5	Write error
-	6	File open error
-	7	Wrong commandline options
-	8	Not enough memory
-	9	File create error
-	255 User Break
-
-
-
-	*/
-	GetExitCodeProcess(pi.hProcess,&exitCode);
-	if (exitCode != 0) {
-		LogLine(string("Winrar error :" + std::to_string(static_cast<_ULonglong>(exitCode)))
-			,Logging::LOG_ERROR);
-	}
-	//close process and thread handles.
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
-
-	return (exitCode == 0);
 }
 
 bool extractShow(VidBase show) {
@@ -371,12 +182,17 @@ bool extractShow(VidBase show) {
 
 int singleShow(const char* dir,const char* name) {
 	
-	string rarName(rarFind(string(dir),false,NULL,string()));
-	if (rarName==string("F")) {
+	if (!findFiles(string(dir),false,
+		[](const string& rardir,const string& rar,const string& dirName) {
+			VidBase temp(regSearch(rardir.c_str(),rar));
+			temp.rarDir = rardir;
+			temp.sceneName = "";
+			videos.push_back(temp);
+	})) {
+		LogLine("FAILURE : unable to find files",Logging::LOG_INFO);
 		return 1;
 	}
-	VidBase blah(regSearch(name,rarName));
-	if (extractShow(blah))
+	if (extractShow(videos[0]))
 		return 0;
 	else
 		return -1;
@@ -385,7 +201,13 @@ int singleShow(const char* dir,const char* name) {
 int ShowPack(const char* dir,const char* name) {
 	unsigned int status(0);
 	videos.reserve(30);
-	rarFind(string(dir),true,regSearch,string());
+	findFiles(string(dir),true,
+		[](const string& rardir,const string& rar,const string& dirName) {
+			VidBase temp(regSearch(rardir.c_str(),rar));
+			temp.rarDir = rardir;
+			temp.sceneName = "";
+			videos.push_back(temp);
+		});
 	vector<VidBase>::iterator iter = videos.begin();
 	while (iter != videos.end()) {
 		if (extractShow(*iter))
@@ -414,12 +236,17 @@ bool extractMovie(const VidBase& movie,const char* sourceDir,const char* sceneNa
 
 int singleMovie(const char* dir,const char* name) {
 
-	string rarName(rarFind(string(dir),false,NULL,string()));
-	if (rarName==string("F")) {
+	if (!findFiles(string(dir),false,
+		[](const string& rardir,const string& rar,const string& dirName) {
+			VidBase temp(movieRegSearch(rardir.c_str(),rar));
+			temp.rarDir = rardir;
+			temp.sceneName = "";
+			videos.push_back(temp);
+	})) {
+		LogLine("FAILURE : unable to find files",Logging::LOG_INFO);
 		return 1;
 	}
-	VidBase blah(movieRegSearch(name,rarName));
-	if (extractMovie(blah,dir,name))
+	if (extractMovie(videos[0],dir,name))
 		return 0;
 	else
 		return -1;
@@ -428,7 +255,14 @@ int singleMovie(const char* dir,const char* name) {
 
 int MoviePack(const char* dir,const char* name) {
 	unsigned int status(0);
-	rarFind(string(dir),true,movieRegSearch,string());
+	findFiles(string(dir),true,
+		[](const string& rardir,const string& rar,const string& dirName) {
+			VidBase temp(movieRegSearch(rardir.c_str(),rar));
+			temp.rarDir = rardir;
+			temp.sceneName = "";
+			videos.push_back(temp);
+	});
+
 	vector<VidBase>::iterator iter = videos.begin();
 	while (iter != videos.end()) {
 		if (extractMovie(*iter,dir,iter->sceneName.c_str()))
@@ -462,18 +296,18 @@ bool setup(const char* iniName) {
 		return false;
 	setupVidType();
 	setupBannedFolders();
-	globalsMap = *config.safe_get_section("globals");
-	if (globalsMap.empty()) {
+	globalsMap = config.safe_get_section("globals");
+	if (!globalsMap || globalsMap->empty()) {
 		cerr << "no config file" << endl;
 		return false;
 	}
-	showsMap = *config.safe_get_section("show_conversions");
-	moviesMap = *config.safe_get_section("movie_conversions");
+	showsMap = config.safe_get_section("show_conversions");
+	moviesMap = config.safe_get_section("movie_conversions");
 
-	VidBase::initBaseLoc(globalsMap["base_loc"]);
-	showRegex = regex(globalsMap["show_regex"], regex_consts::ECMAScript | regex_consts::icase);
-	movieRegex = regex(globalsMap["movie_regex"], regex_consts::ECMAScript | regex_consts::icase);
-	winrar = globalsMap["winrar"];
+	VidBase::initBaseLoc((*globalsMap)["base_loc"]);
+	showRegex = regex((*globalsMap)["show_regex"], regex_consts::ECMAScript | regex_consts::icase);
+	movieRegex = regex((*globalsMap)["movie_regex"], regex_consts::ECMAScript | regex_consts::icase);
+	setWinrarLoc((*globalsMap)["winrar"]);
 
 	return true;
 }
@@ -491,9 +325,9 @@ int main(int argc,char** args) {
 		return -1;
 
 #ifndef NDEBUG
-	Logging::init(Logging::LOG_DEBUG,true,true,globalsMap["log_name"]);
+	Logging::init(Logging::LOG_DEBUG,true,true,(*globalsMap)["log_name"]);
 #else
-	Logging::init(Logging::LOG_DEBUG,false,true,globalsMap["log_name"]);
+	Logging::init(Logging::LOG_DEBUG,false,true,(*globalsMap)["log_name"]);
 #endif
 
 	// Check if log creation was successful

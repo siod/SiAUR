@@ -8,20 +8,20 @@ using std::cout;
 using std::string;
 using std::cin;
 
-VidBase movieRegSearch(const char* str, string &rar);
-VidBase regSearch(const char* str,string &rar);
+VidBase movieRegSearch(const char* str, const string &rar);
+VidBase regSearch(const char* str,const string &rar);
 
 #ifndef NDEBUG
 
 void singleMovieTest(const char* raw,const char* name) {
-	VidBase temp(movieRegSearch(raw, string()));
+	VidBase temp(movieRegSearch(raw, ""));
 	cout << name << " test " << ((temp == Movie::create(string(name),string())) ? "succeeded" : ("failed name = \'" + temp.getName() + "\'"));
 	cout << "\n";
 
 }
 
 void singleShowTest(const char* raw,const char* name,int season, int ep) {
-	VidBase temp(regSearch(raw,string()));
+	VidBase temp(regSearch(raw,""));
 	cout << name << " test " << ((temp == Show::create(string(name),string(),season,ep)) ? "succeeded" : ("failed name = \'" + temp.getName() + "\'"));
 	cout << "\n";
 
@@ -36,7 +36,7 @@ bool test() {
 	singleShowTest("Supernatural.s06e21-e22.720p.hdtv.x264-2hd","Supernatural",6,21);
 	singleShowTest("Burn.Notice.S06E17E18.720p.HDTV.x264-IMMERSE","Burn Notice",6,17);
 
-	cout << "rename testing\n";
+	cout << "\n\nRename testing.\n\n\n";
 	singleShowTest("Dr_Who_2005.6x01.The_Impossible_Astronaut_Part1.720p_HDTV_x264-FoV","Doctor Who 2005",6,1);
 	singleShowTest("Adventure.Time.with.Finn.and.Jake.S05E09.720p.HDTV.x264-2HD","Adventure Time",5,9);
 
@@ -51,7 +51,7 @@ bool test() {
 
 
 	cout << "continue?";
-	char answer;
+	int answer;
 	answer = cin.get();
 	cin.ignore();
 	return (answer == 'y' ||

@@ -3,7 +3,7 @@
 class Show: public VidBase {
 	Show();
 public:
-	static VidBase create(std::string &str, std::string &rar,
+	static VidBase create(const std::string &str, const std::string &rar,
 	   	int season, int ep,
 	   	std::string urloc = "Tv Shows\\")
 	{
