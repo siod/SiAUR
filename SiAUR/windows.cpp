@@ -197,9 +197,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 #ifndef NDEBUG
 			std::cout << "Possible Match: " << filename << std::endl;
 #endif
-			if (filename.rfind("subs.rar",filename.size()-1,8) != string::npos) {
-				continue;
-			} else {
+			if (filename.rfind("subs.rar",filename.size()-1,8) == string::npos) {
 #ifndef NDEBUG
 			std::cout << "Match: " << filename << std::endl;
 #endif
