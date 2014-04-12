@@ -2,6 +2,7 @@
 #define VIDBASE
 #include <string>
 #include <sstream>
+#include "defines.h"
 
 class VidBase {
 	friend inline bool operator==(const VidBase& rhs,const VidBase& lhs);

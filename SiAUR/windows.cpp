@@ -31,7 +31,7 @@ const string winrar_getErrorText(int errorCode) {
 	return WINRAR_ERRORS[errorCode];
 }
 
-void setWinrarLoc(const string& loc) {
+void setUnRarLoc(const string& loc) {
 	WINRAR_LOC = loc;
 }
 
@@ -45,7 +45,7 @@ inline bool isBannedFolder(string& input) {
 	return ( input[0] == '.' || bannedFolders.find(input) != bannedFolders.end());
 }
 
-bool callWinRar(const string& loc,const string& dest) {
+bool callUnRar(const string& loc,const string& dest) {
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
 	string comString(WINRAR_LOC + " e -y \"" + loc + "\" \"" + dest + "\"");

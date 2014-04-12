@@ -11,8 +11,11 @@
 
 #include "../../SiLib/SiConf/reader.h"
 #include "../../SiLib/SiLog/logging.h"
+
+#ifdef _WIN
 #pragma comment(lib, "SiConf.lib")
 #pragma comment(lib, "SiLog.lib")
+#endif
 
 //#define DRY_TESTING
 
@@ -28,9 +31,19 @@ using std::string;
 using std::wstring;
 using std::vector;
 using std::unordered_set;
+#ifdef _WIN
 using std::tr1::regex;
+#else
+using std::regex;
+#endif
+
 using std::stringstream;
+
+#ifdef _WIN
 namespace regex_consts = std::tr1::regex_constants;
+#else
+namespace regex_consts = std::regex_constants;
+#endif
 
 typedef void (*ProcessFunc)(const string& ,const string& ,const string&);
 
@@ -52,12 +65,12 @@ regex showRegex;
 regex movieRegex;
 
 //Windows defines
-bool callWinRar(const string& loc,const string& dest);
+bool callUnRar(const string& loc,const string& dest);
 bool copyNfo(const string &dir, const string &dest,const char* name);
 bool findFiles(string dir, bool pack,void (*process)(const string&,const string&,const string&) ,
 			   const string& extension= "",const string& dirName = "");
 void setupBannedFolders();
-void setWinrarLoc(const string& loc);
+void setUnRarLoc(const string& loc);
 // End windows defines
 
 void setupVidType() {
@@ -171,7 +184,7 @@ VidBase movieRegSearch(const char* str, const string &rar) {
 }
 
 bool extractShow(VidBase show) {
-	if (callWinRar(show.RarLoc(),Show::URLoc(show))) {
+	if (callUnRar(show.RarLoc(),Show::URLoc(show))) {
 		LogLine(string("SUCCESS : " + show.name + "\t from " + show.RarLoc() + "\t to " + Show::URLoc(show)),Logging::LOG_INFO);
 		return true;
 	} else {
@@ -218,7 +231,7 @@ int ShowPack(const char* dir,const char* name) {
 }
 
 bool extractMovie(const VidBase& movie,const char* sourceDir,const char* sceneName) {
-	if (callWinRar(movie.RarLoc(),Movie::URLoc(movie))) {
+	if (callUnRar(movie.RarLoc(),Movie::URLoc(movie))) {
 		LogLine("SUCCESS : " + movie.name + "\t from " + movie.RarLoc() + 
 				"\t to " + Movie::URLoc(movie),Logging::LOG_INFO);
 			if (copyNfo(sourceDir,Movie::URLoc(movie),sceneName)) {
@@ -275,6 +288,9 @@ int MoviePack(const char* dir,const char* name) {
 
 
 JOB_TYPE getJobType(const char* sJobType) {
+	if (strcmp(sJobType,"TV")==0) {
+		return TV;
+	} 
 	if (strcmp(sJobType,"TV-RSS")==0) {
 		return TV;
 	} 
@@ -292,13 +308,15 @@ JOB_TYPE getJobType(const char* sJobType) {
 }
 
 bool setup(const char* iniName) {
-	if (!config.init(iniName))
+	if (!config.init(iniName,true)) {
+		cerr << "Invalid config file" << endl;
 		return false;
+	}
 	setupVidType();
 	setupBannedFolders();
-	globalsMap = config.safe_get_section("globals");
+	globalsMap = config.get_section("globals");
 	if (!globalsMap || globalsMap->empty()) {
-		cerr << "no config file" << endl;
+		cerr << "config file " << iniName << " empty" << endl;
 		return false;
 	}
 	showsMap = config.safe_get_section("show_conversions");
@@ -307,7 +325,7 @@ bool setup(const char* iniName) {
 	VidBase::initBaseLoc((*globalsMap)["base_loc"]);
 	showRegex = regex((*globalsMap)["show_regex"], regex_consts::ECMAScript | regex_consts::icase);
 	movieRegex = regex((*globalsMap)["movie_regex"], regex_consts::ECMAScript | regex_consts::icase);
-	setWinrarLoc((*globalsMap)["winrar"]);
+	setUnRarLoc((*globalsMap)["unrar"]);
 
 	return true;
 }
@@ -342,18 +360,17 @@ int main(int argc,char** args) {
 	}
 	Log("\n",Logging::LOG_INFO);
 
-	if (argc < 3) {
-		LogLine("Use: <JobType> <name> <location>",Logging::LOG_ERROR);
-		Logging::destroy();
-		return 1;
-	}
-
-	
 #ifndef NDEBUG
 	//testing code
 	if (!test())
 		return 0;
 #endif
+
+	if (argc < 3) {
+		LogLine("Use: <JobType> <name> <location>",Logging::LOG_ERROR);
+		Logging::destroy();
+		return 1;
+	}
 
 	int status = -1;
 	JOB_TYPE jobType = getJobType(args[1]);
