@@ -8,7 +8,7 @@ class VidBase {
 	friend inline bool operator==(const VidBase& rhs,const VidBase& lhs);
 public:
 	VidBase(const std::string &_name, const std::string &rar, const std::string &Dloc,int s = -1, int e = -1)
-		:UDloc( Dloc ), rarLoc(rar),rarDir(""),name(_name),sceneName(""), season(s), ep(e) {}
+		:UDloc( Dloc ), rarLoc(rar),rarDir(""),name(_name),sceneName(""), sourceDir(""),season(s), ep(e) {}
 
 	const std::string& getName() const { return name; }
 
@@ -35,6 +35,7 @@ public:
 	//name of the show
 	std::string name;
 	std::string sceneName;
+	std::string sourceDir;
 	//season number and ep number
 	int season,ep;
 };

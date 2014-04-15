@@ -3,16 +3,19 @@
 #include <dirent.h>
 #include <iostream>
 #include <algorithm>
+#include <fcntl.h>
+#include <unistd.h>
+#include "defines.h"
+
+#define BUFSIZE 4096
+
 using std::unordered_set;
 using std::string;
-#ifndef FILE_SEPERATOR
-#define FILE_SEPERATOR '/'
-#endif
 
 static string UNRAR_LOC;
 
 bool callUnRar(const string& loc,const string& dest) {
-	string cmd(string(UNRAR_LOC + " e \"" + loc + "\" \"" + dest + "\" "));
+	string cmd(string(UNRAR_LOC + " e -y \"" + loc + "\" \"" + dest + "\" "));
 
 #ifndef NDEBUG
 			std::cout << cmd << std::endl;
@@ -28,8 +31,53 @@ inline bool isBannedFolder(string& input) {
 		);
 }
 
-bool copyNfo(const string &dir, const string &dest,const char* name) {
-	return false;
+bool copyNfo(string dir, const string &dest,const char* name) {
+	DIR * dp;
+	struct dirent *dirp;
+	if ((dp = opendir(dir.c_str())) == NULL) {
+#ifndef NDEBUG
+		std::cout << "\nUnable to open dir\n";
+#endif
+		return false;
+	}
+
+	if (dir[dir.size()-1] != FILE_SEPERATOR[0])
+		dir += FILE_SEPERATOR;
+
+	string filename,nfo;
+	while ((dirp = readdir(dp)) != NULL) {
+		filename = dirp->d_name;
+		if (filename.rfind(".nfo",filename.size()-1,4) != string::npos) {
+			nfo = dir + filename;
+			break;
+		}
+	}
+	if (dirp == NULL) {
+#ifndef NDEBUG
+		std::cout << "Unable to find nfo";
+#endif
+		return false;
+	}
+#ifndef NDEBUG
+	std::cout << nfo << "\n";
+	std::cout << dest << name <<  ".nfo\n";
+#endif
+
+
+	int read_fd(open(nfo.c_str(),O_RDONLY));
+	int write_fd(open((dest + name + ".nfo").c_str(),O_WRONLY | O_CREAT,0644));
+
+	char buf[BUFSIZE];
+	size_t size;
+
+	while ((size = read(read_fd,buf,BUFSIZE)) > 0) {
+		write(write_fd,buf,size);
+	}
+	//sendfile(write_fd,read_fd,&offset,stat_buf.st_size);
+
+	close(read_fd);
+	close(write_fd);
+	return true;
 }
 
 bool findFiles(string dir, bool pack,void (*process)(const string&,const string&,const string&) ,
@@ -40,7 +88,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 		return false;
 	}
 
-	if (dir[dir.size()-1] != (char)FILE_SEPERATOR)
+	if (dir[dir.size()-1] != FILE_SEPERATOR[0])
 		dir += FILE_SEPERATOR;
 
 	bool found(false);

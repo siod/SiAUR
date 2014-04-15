@@ -66,7 +66,7 @@ regex movieRegex;
 
 //Windows defines
 bool callUnRar(const string& loc,const string& dest);
-bool copyNfo(const string &dir, const string &dest,const char* name);
+bool copyNfo(string dir, const string &dest,const char* name);
 bool findFiles(string dir, bool pack,void (*process)(const string&,const string&,const string&) ,
 			   const string& extension= "",const string& dirName = "");
 void setupBannedFolders();
@@ -230,11 +230,11 @@ int ShowPack(const char* dir,const char* name) {
 	return (status == videos.size()) ? 0 : -1;
 }
 
-bool extractMovie(const VidBase& movie,const char* sourceDir,const char* sceneName) {
+bool extractMovie(const VidBase& movie,const char* sourceDir,string sceneName) {
 	if (callUnRar(movie.RarLoc(),Movie::URLoc(movie))) {
 		LogLine("SUCCESS : " + movie.name + "\t from " + movie.RarLoc() + 
 				"\t to " + Movie::URLoc(movie),Logging::LOG_INFO);
-			if (copyNfo(sourceDir,Movie::URLoc(movie),sceneName)) {
+			if (copyNfo(sourceDir,Movie::URLoc(movie),sceneName.c_str())) {
 				LogLine("SUCCESS : nfo copied",Logging::LOG_INFO);
 			} else {
 				LogLine("FAILURE : nfo not copied",Logging::LOG_INFO);
@@ -259,7 +259,7 @@ int singleMovie(const char* dir,const char* name) {
 		LogLine("FAILURE : unable to find files",Logging::LOG_INFO);
 		return 1;
 	}
-	if (extractMovie(videos[0],dir,name))
+	if (extractMovie(videos[0],dir,string(name)))
 		return 0;
 	else
 		return -1;
@@ -272,13 +272,27 @@ int MoviePack(const char* dir,const char* name) {
 		[](const string& rardir,const string& rar,const string& dirName) {
 			VidBase temp(movieRegSearch(rardir.c_str(),rar));
 			temp.rarDir = rardir;
-			temp.sceneName = "";
+			string sourceDir;
+			size_t nameStart = rardir.rfind(temp.name.substr(0,temp.name.find(" ")));
+			size_t nameEnd = rardir.find(FILE_SEPERATOR,nameStart);
+			if (nameStart != string::npos && nameEnd != string::npos) {
+				temp.sceneName = string(rardir,nameStart,nameEnd - nameStart);
+				temp.sourceDir = string(rardir,0,nameEnd +1);
+#ifndef NDEBUG
+				std::cout << temp.sceneName << "\n";
+				std::cout << temp.sourceDir << "\n";
+#endif
+			} else {
+				temp.sceneName = "";
+				temp.sourceDir = "";
+			}
 			videos.push_back(temp);
 	});
 
 	vector<VidBase>::iterator iter = videos.begin();
 	while (iter != videos.end()) {
-		if (extractMovie(*iter,dir,iter->sceneName.c_str()))
+		const char* sourceDir = (iter->sourceDir != "") ? iter->sourceDir.c_str() : dir ;
+		if (extractMovie(*iter,sourceDir,iter->sceneName))
 			++status;
 		++iter;
 	}
@@ -308,7 +322,7 @@ JOB_TYPE getJobType(const char* sJobType) {
 }
 
 bool setup(const char* iniName) {
-	if (!config.init(iniName,true)) {
+	if (!config.init(iniName,false)) {
 		cerr << "Invalid config file" << endl;
 		return false;
 	}
@@ -337,7 +351,7 @@ int main(int argc,char** args) {
 #ifndef NDEBUG
 	const char* iniName("SiAUR.ini");
 #else
-	const char* iniName("E:\\SiAUR.ini");
+	const char* iniName("SiAUR.ini");
 #endif
 	if (!setup(iniName))
 		return -1;
