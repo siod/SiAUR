@@ -80,8 +80,8 @@ bool copyNfo(string dir, const string &dest,const char* name) {
 	return true;
 }
 
-bool findFiles(string dir, bool pack,void (*process)(const string&,const string&,const string&) ,
-			   const string& extension= "",const string& dirName = "") {
+bool findFiles(string dir, bool pack,void (*process)(const string&,const string&) ,
+			   const string& extension= "") {
 	DIR * dp;
 	struct dirent *dirp;
 	if ((dp = opendir(dir.c_str())) == NULL) {
@@ -97,7 +97,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 	while ((dirp = readdir(dp)) != NULL) {
 		filename = dirp->d_name;
 		if (pack && (dirp->d_type == DT_DIR) && !isBannedFolder(filename)) {
-			findFiles(dir + filename,pack,process,extension,filename);
+			findFiles(dir + filename,pack,process,extension);
 		}
 
 		if (filename.rfind(".rar",filename.size()-1,4) == string::npos) {
@@ -106,7 +106,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 #ifndef NDEBUG
 			std::cout << filename << std::endl;
 #endif
-			process(dir,dir+filename,dirName);
+			process(dir,dir+filename);
 			return true;
 		} else {
 			if (filename.rfind("subs.rar",filename.size()-1,8) == string::npos) {
@@ -120,7 +120,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 	}
 
 	if (found) {
-		process(dir,dir+foundFilename,dirName);
+		process(dir,dir+foundFilename);
 		return true;
 	}
 	return false;

@@ -157,8 +157,8 @@ bool copyNfo(const string &dir, const string &dest,const char* name) {
 }
 
 
-bool findFiles(string dir, bool pack,void (*process)(const string&,const string&,const string&) ,
-			   const string& extension= "",const string& dirName = "") {
+bool findFiles(string dir, bool pack,void (*process)(const string&,const string&) ,
+			   const string& extension= "") {
 	WIN32_FIND_DATA Findz;
 	ZeroMemory( &Findz, sizeof(Findz) );
 	HANDLE fred;
@@ -191,7 +191,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 #ifndef NDEBUG
 			std::cout << Findz.cFileName << std::endl;
 #endif
-			process(dir,dir+filename,dirName);
+			process(dir,dir+filename);
 			return true;
 		} else {
 #ifndef NDEBUG
@@ -209,7 +209,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 	} 
 
 	if (found) {
-		process(dir,dir+foundRarN,dirName);
+		process(dir,dir+foundRarN);
 		return true;
 	}
 	return false;

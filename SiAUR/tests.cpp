@@ -3,6 +3,7 @@
 #include "Vid.hpp"
 #include "Show.h"
 #include "Movie.h"
+#include "defines.h"
 
 using std::cout;
 using std::string;
@@ -43,6 +44,7 @@ bool test() {
 	// Movie testing
 	cout << "\n\nMovie testing\n\n\n";
 	singleMovieTest("Rango.2011.EXTENDED.1080p.Bluray.x264-VeDeTT","Rango 2011");
+	singleMovieTest(FILE_SEPERATOR "Users" FILE_SEPERATOR "Tim" FILE_SEPERATOR "Documents" FILE_SEPERATOR "tmp" FILE_SEPERATOR "X-Men.MOViE.PACK.1080p.BluRay.x264-SCC" FILE_SEPERATOR "X-Men.Origins.Wolverine.1080p.BluRay.x264-METiS" FILE_SEPERATOR "","X Men Origins Wolverine");
 	singleMovieTest("Jackass.3.5.2011.1080p.BluRay.X264-7SinS", "Jackass 3 5 2011");
 	singleMovieTest("Ricky.Steamboat.The.Life.Story.of.the.Dragon.2010.DVDRip.XviD-SPRiNTER", "Ricky Steamboat The Life Story of the Dragon 2010");
 	singleMovieTest("Living.in.Emergency.Stories.of.Doctors.Without.Borders.2008.DOCU.DVDRip.XviD-SPRiNTER",

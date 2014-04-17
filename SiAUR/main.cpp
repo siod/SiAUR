@@ -67,8 +67,8 @@ regex movieRegex;
 //Windows defines
 bool callUnRar(const string& loc,const string& dest);
 bool copyNfo(string dir, const string &dest,const char* name);
-bool findFiles(string dir, bool pack,void (*process)(const string&,const string&,const string&) ,
-			   const string& extension= "",const string& dirName = "");
+bool findFiles(string dir, bool pack,void (*process)(const string&,const string&) ,
+			   const string& extension= "");
 void setupBannedFolders();
 void setUnRarLoc(const string& loc);
 // End windows defines
@@ -84,6 +84,9 @@ void setupVidType() {
 	vidType.insert("PAL");
 	vidType.insert("UNRATED");
 	vidType.insert("INTERNAL");
+	vidType.insert("EXTENDED");
+	vidType.insert("LIMITED");
+	vidType.insert("REMASTERED");
 
 }
 
@@ -113,32 +116,37 @@ string convert_name(string& original_name,section_map& conversions) {
 }
 
 string checkForVideoType(const char* str,const string& failString) {
-	string tokens;
-	tokens.reserve(255);
-	string buffer;
-	stringstream lol(str);
-	char nextchar;
+#ifndef NDEBUG
+	std::cout <<"fallback video decoding: '" << str << "'\n";
+#endif
+	string name(str);
+	std::vector<string> tokens;
+	size_t sPos(0);
+	size_t ePos(0);
+	if (name[sPos] == FILE_SEPERATOR[0])
+		++sPos;
+	while ((ePos = name.find(FILE_SEPERATOR,sPos)) != string::npos) {
+		tokens.push_back(name.substr(sPos,ePos - sPos));
+		sPos = ePos +1;
+	}
+	if (tokens.size() == 0) {
+		tokens.push_back(name);
+	}
 
-	while (lol.good()) {
-		lol >> nextchar;
-		switch (nextchar) {
-			case '.':
-				if (checkDelimiters(buffer))
-					return tokens.erase(tokens.size()-1);
-				tokens += buffer + " ";
+	for (int i(tokens.size()-1); i >= 0; --i) {
+		string buffer;
+		buffer.reserve(tokens[i].size());
+		string decodedName("");
+		for (int j(0),len(tokens[i].size());j < len;++j) {
+			if (tokens[i][j] == '.') {
+				if (checkDelimiters(buffer)) {
+					return decodedName.erase(decodedName.size()-1);
+				}
+				decodedName += buffer + " ";
 				buffer.clear();
-				break;
-
-			case '/':
-			case '\\':
-			case ':':
-				buffer.clear();
-				tokens.clear();
-				break;
-
-			default:
-				buffer +=nextchar;
-				break;
+			} else {
+				buffer += tokens[i][j];
+			}
 		}
 	}
 	// unable to parse
@@ -174,9 +182,8 @@ VidBase movieRegSearch(const char* str, const string &rar) {
 		movieName = regex_replace(string(str),movieRegex,
 											string("$1")/*format*/,
 											regex_consts::match_default | regex_consts::format_no_copy);
-		movieName = checkForVideoType(movieName.c_str(),movieName);
 	} else {
-		movieName = checkForVideoType(str,string("Unknown-Movie"));
+		movieName = checkForVideoType(str,string("000 Unknown Movie"));
 	}
 	movieName = regex_replace(movieName,regex("[\\._-]+"),string(" "));
 	movieName = convert_name(movieName,*moviesMap);
@@ -193,10 +200,10 @@ bool extractShow(VidBase show) {
 	}
 }
 
-int singleShow(const char* dir,const char* name) {
+int singleShow(const char* dir) {
 	
 	if (!findFiles(string(dir),false,
-		[](const string& rardir,const string& rar,const string& dirName) {
+		[](const string& rardir,const string& rar) {
 			VidBase temp(regSearch(rardir.c_str(),rar));
 			temp.rarDir = rardir;
 			temp.sceneName = "";
@@ -211,11 +218,11 @@ int singleShow(const char* dir,const char* name) {
 		return -1;
 }
 
-int ShowPack(const char* dir,const char* name) {
+int ShowPack(const char* dir) {
 	unsigned int status(0);
 	videos.reserve(30);
 	findFiles(string(dir),true,
-		[](const string& rardir,const string& rar,const string& dirName) {
+		[](const string& rardir,const string& rar) {
 			VidBase temp(regSearch(rardir.c_str(),rar));
 			temp.rarDir = rardir;
 			temp.sceneName = "";
@@ -250,7 +257,7 @@ bool extractMovie(const VidBase& movie,const char* sourceDir,string sceneName) {
 int singleMovie(const char* dir,const char* name) {
 
 	if (!findFiles(string(dir),false,
-		[](const string& rardir,const string& rar,const string& dirName) {
+		[](const string& rardir,const string& rar) {
 			VidBase temp(movieRegSearch(rardir.c_str(),rar));
 			temp.rarDir = rardir;
 			temp.sceneName = "";
@@ -266,10 +273,10 @@ int singleMovie(const char* dir,const char* name) {
 }
 
 
-int MoviePack(const char* dir,const char* name) {
+int MoviePack(const char* dir) {
 	unsigned int status(0);
 	findFiles(string(dir),true,
-		[](const string& rardir,const string& rar,const string& dirName) {
+		[](const string& rardir,const string& rar) {
 			VidBase temp(movieRegSearch(rardir.c_str(),rar));
 			temp.rarDir = rardir;
 			string sourceDir;
@@ -390,16 +397,16 @@ int main(int argc,char** args) {
 	JOB_TYPE jobType = getJobType(args[1]);
 	switch (jobType) {
 		case TV:
-			status = singleShow(args[3],args[2]);
+			status = singleShow(args[3]);
 			break;
 		case TV_PACK:
-			status = ShowPack(args[3],args[2]);
+			status = ShowPack(args[3]);
 			break;
 		case MOVIE:
 			status = singleMovie(args[3],args[2]);
 			break;
 		case MOVIE_PACK:
-			status = MoviePack(args[3],args[2]);
+			status = MoviePack(args[3]);
 			break;
 
 		case INVALID:

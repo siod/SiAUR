@@ -1,16 +1,16 @@
 # Compiler to use
 CC=g++
-CFLAGS=-std=c++11 -fno-exceptions -Wall -Wextra
+CFLAGS=-std=c++11 -O2 -fno-exceptions -Wall -Wextra -DNDEBUG
 
 #
 
 all: unix.o Movie.o Show.o Vid.o
-	$(CC)  $(CFLAGS) -DNDEBUG ../libs/SiLog.lib ../libs/SiConf.lib main.cpp unix.o Movie.o Show.o Vid.o -o main
+	$(CC)  $(CFLAGS)  ../libs/SiLog.lib ../libs/SiConf.lib main.cpp unix.o Movie.o Show.o Vid.o -o main
 
 test: unix.o Movie.o Show.o Vid.o tests.o
 	$(CC)  $(CFLAGS) ../libs/SiLog.lib ../libs/SiConf.lib main.cpp tests.o unix.o Movie.o Show.o Vid.o -o test
 
-tests.o: tests.cpp 
+tests.o: tests.cpp
 	$(CC) $(CFLAGS) -c tests.cpp
 
 unix.o: unix.cpp
