@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 #include <unordered_set>
+#include <stdlib.h>
 #include "Vid.hpp"
 #include "Show.h"
 #include "Movie.h"
@@ -328,8 +329,8 @@ JOB_TYPE getJobType(const char* sJobType) {
 	return INVALID;
 }
 
-bool setup(const char* iniName) {
-	if (!config.init(iniName,false)) {
+bool setup(const string& iniName) {
+	if (!config.init(iniName.c_str(),false)) {
 		cerr << "Invalid config file" << endl;
 		return false;
 	}
@@ -356,9 +357,9 @@ bool setup(const char* iniName) {
 #endif
 int main(int argc,char** args) {
 #ifndef NDEBUG
-	const char* iniName("SiAUR.ini");
+	std::string iniName("SiAUR.ini");
 #else
-	const char* iniName("SiAUR.ini");
+	std::string iniName(string(getenv("HOME")) + "/.SiAUR.config");
 #endif
 	if (!setup(iniName))
 		return -1;
