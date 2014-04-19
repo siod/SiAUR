@@ -331,7 +331,7 @@ JOB_TYPE getJobType(const char* sJobType) {
 
 bool setup(const string& iniName) {
 	if (!config.init(iniName.c_str(),false)) {
-		cerr << "Invalid config file" << endl;
+		cerr << iniName << " is not a valid config file" << endl;
 		return false;
 	}
 	setupVidType();
