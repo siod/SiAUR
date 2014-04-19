@@ -9,8 +9,8 @@
 #include "Show.h"
 #include "Movie.h"
 
-#include "../../SiLib/SiConf/reader.h"
-#include "../../SiLib/SiLog/logging.h"
+#include "../libs/include/SiConf.h"
+#include "../libs/include/SiLog.h"
 
 #ifdef _WIN
 #pragma comment(lib, "SiConf.lib")
