@@ -1,14 +1,23 @@
 # Compiler to use
 CC=g++
-CFLAGS=-std=c++11 -O2 -fno-exceptions -Wall -Wextra -DNDEBUG
+CFLAGS=-std=c++11 -O2 -Wall -Wextra -DNDEBUG
 
-#
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Linux)
+	#Linux
+	CLIBS=../libs/SiLog.lib ../libs/SiConf.lib -lboost_regex
+endif
+ifeq ($(UNAME), Darwin)
+	#OS X
+	CLIBS=../libs/SiLog.lib ../libs/SiConf.lib
+endif
 
 all: unix.o Movie.o Show.o Vid.o
-	$(CC)  $(CFLAGS)  ../libs/SiLog.lib ../libs/SiConf.lib main.cpp unix.o Movie.o Show.o Vid.o -o main
+	$(CC)  $(CFLAGS) $(CLIBS)  main.cpp unix.o Movie.o Show.o Vid.o -o main
 
 test: unix.o Movie.o Show.o Vid.o tests.o
-	$(CC)  $(CFLAGS) ../libs/SiLog.lib ../libs/SiConf.lib main.cpp tests.o unix.o Movie.o Show.o Vid.o -o test
+	$(CC)  $(CFLAGS) $(CLIBS) main.cpp tests.o unix.o Movie.o Show.o Vid.o -o test
 
 tests.o: tests.cpp
 	$(CC) $(CFLAGS) -c tests.cpp

@@ -1,7 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#ifdef __linux__
+#include <boost/regex.hpp>
+#else
 #include <regex>
+#endif
 #include <sstream>
 #include <vector>
 #include <unordered_set>
@@ -18,8 +22,6 @@
 #pragma comment(lib, "SiLog.lib")
 #endif
 
-//#define DRY_TESTING
-
 #ifndef Log
 #define Log Logging::Log
 #define LogLine Logging::LogLine
@@ -32,19 +34,19 @@ using std::string;
 using std::wstring;
 using std::vector;
 using std::unordered_set;
-#ifdef _WIN
-using std::tr1::regex;
-#else
-using std::regex;
-#endif
-
 using std::stringstream;
 
 #ifdef _WIN
+using std::tr1::regex;
 namespace regex_consts = std::tr1::regex_constants;
+#elif defined(__linux__)
+using boost::regex;
+namespace regex_consts = boost::regex_constants;
 #else
+using std::regex;
 namespace regex_consts = std::regex_constants;
 #endif
+
 
 typedef void (*ProcessFunc)(const string& ,const string& ,const string&);
 
@@ -65,7 +67,7 @@ section_map* moviesMap(NULL);
 regex showRegex;
 regex movieRegex;
 
-//Windows defines
+//OS  defines
 bool callUnRar(const string& loc,const string& dest);
 bool copyNfo(string dir, const string &dest,const char* name);
 bool findFiles(string dir, bool pack,void (*process)(const string&,const string&) ,
