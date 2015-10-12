@@ -38,12 +38,15 @@ using std::stringstream;
 
 #ifdef _WIN32
 using std::tr1::regex;
+using std::smatch;
 namespace regex_consts = std::tr1::regex_constants;
 #elif defined(__linux__)
 using boost::regex;
+using boost::smatch;
 namespace regex_consts = boost::regex_constants;
 #else
 using std::regex;
+using std::smatch;
 namespace regex_consts = std::regex_constants;
 #endif
 
@@ -184,7 +187,7 @@ VidBase movieRegSearch(const char* encoded_name, const string &rar) {
 	string s_year;
 	string str(encoded_name);
 	// default "([a-z\d\._-]+\.)((19|20)\d\d)(\.)"
-	std::smatch m;
+	smatch m;
 	if (regex_search(str,m,movieRegex) && m.size() >= 3) {
 		movieName = m[1];
 		s_year = m[2];
