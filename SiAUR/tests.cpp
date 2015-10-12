@@ -14,9 +14,9 @@ VidBase regSearch(const char* str,const string &rar);
 
 #ifndef NDEBUG
 
-void singleMovieTest(const char* raw,const char* name) {
+void singleMovieTest(const char* raw,const char* name,int year = -1) {
 	VidBase temp(movieRegSearch(raw, ""));
-	cout << name << " test " << ((temp == Movie::create(string(name),string())) ? "succeeded" : ("failed name = \'" + temp.getName() + "\'"));
+	cout << name << " test " << ((temp == Movie::create(string(name),year,string())) ? "succeeded" : ("failed name = \'" + temp.getName() + "\'"));
 	cout << "\n";
 
 }
@@ -43,12 +43,12 @@ bool test() {
 
 	// Movie testing
 	cout << "\n\nMovie testing\n\n\n";
-	singleMovieTest("Rango.2011.EXTENDED.1080p.Bluray.x264-VeDeTT","Rango 2011");
+	singleMovieTest("Rango.2011.EXTENDED.1080p.Bluray.x264-VeDeTT","Rango",2011);
 	singleMovieTest(FILE_SEPERATOR "Users" FILE_SEPERATOR "Tim" FILE_SEPERATOR "Documents" FILE_SEPERATOR "tmp" FILE_SEPERATOR "X-Men.MOViE.PACK.1080p.BluRay.x264-SCC" FILE_SEPERATOR "X-Men.Origins.Wolverine.1080p.BluRay.x264-METiS" FILE_SEPERATOR "","X Men Origins Wolverine");
-	singleMovieTest("Jackass.3.5.2011.1080p.BluRay.X264-7SinS", "Jackass 3 5 2011");
-	singleMovieTest("Ricky.Steamboat.The.Life.Story.of.the.Dragon.2010.DVDRip.XviD-SPRiNTER", "Ricky Steamboat The Life Story of the Dragon 2010");
+	singleMovieTest("Jackass.3.5.2011.1080p.BluRay.X264-7SinS", "Jackass 3 5",2011);
+	singleMovieTest("Ricky.Steamboat.The.Life.Story.of.the.Dragon.2010.DVDRip.XviD-SPRiNTER", "Ricky Steamboat The Life Story of the Dragon",2010);
 	singleMovieTest("Living.in.Emergency.Stories.of.Doctors.Without.Borders.2008.DOCU.DVDRip.XviD-SPRiNTER",
-					"Living in Emergency Stories of Doctors Without Borders 2008");
+					"Living in Emergency Stories of Doctors Without Borders",2008);
 	singleMovieTest("The.Lincoln.Lawyer.DVDRip.XviD-TARGET", "The Lincoln Lawyer");
 
 

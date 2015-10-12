@@ -17,7 +17,7 @@
 #include "../libs/include/SiConf.h"
 #include "../libs/include/SiLog.h"
 
-#ifdef _WIN
+#ifdef _WIN32
 #pragma comment(lib, "SiConf.lib")
 #pragma comment(lib, "SiLog.lib")
 #endif
@@ -36,7 +36,7 @@ using std::vector;
 using std::unordered_set;
 using std::stringstream;
 
-#ifdef _WIN
+#ifdef _WIN32
 using std::tr1::regex;
 namespace regex_consts = std::tr1::regex_constants;
 #elif defined(__linux__)
@@ -178,19 +178,26 @@ VidBase regSearch(const char* str,const string &rar) {
 	return Show::create(showname,rar,season,ep);
 }
 
-VidBase movieRegSearch(const char* str, const string &rar) {
+VidBase movieRegSearch(const char* encoded_name, const string &rar) {
 	string movieName;
-	// default "([a-z\d\._-]+\.(19|20)\d\d)(\.)"
-	if (regex_search(str,movieRegex)) {
-		movieName = regex_replace(string(str),movieRegex,
-											string("$1")/*format*/,
-											regex_consts::match_default | regex_consts::format_no_copy);
+	int year(-1);
+	string s_year;
+	string str(encoded_name);
+	// default "([a-z\d\._-]+\.)((19|20)\d\d)(\.)"
+	std::smatch m;
+	if (regex_search(str,m,movieRegex) && m.size() >= 3) {
+		movieName = m[1];
+		s_year = m[2];
 	} else {
-		movieName = checkForVideoType(str,string("000 Unknown Movie"));
+		movieName = checkForVideoType(str.c_str(),string("000 Unknown Movie"));
 	}
+	year = atoi(s_year.c_str());
 	movieName = regex_replace(movieName,regex("[\\._-]+"),string(" "));
+	while (movieName[movieName.size() -1] == ' ') {
+		movieName.erase(movieName.size() -1);
+	}
 	movieName = convert_name(movieName,*moviesMap);
-	return Movie::create(movieName,rar);
+	return Movie::create(movieName,year,rar);
 }
 
 bool extractShow(VidBase show) {

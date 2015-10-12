@@ -10,3 +10,9 @@ std::string VidBase::RarLoc() const {
 std::string VidBase::RarLoc(VidBase& video ) const {
 	return std::string(video.rarLoc);
 }
+
+std::string VidBase::getNameWithYear() const {
+	std::stringstream temp;
+	temp << name << " (" << year << ")";
+	return temp.str();
+}

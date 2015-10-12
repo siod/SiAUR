@@ -109,7 +109,7 @@ bool callUnRar(const string& loc,const string& dest) {
 }
 
 
-bool copyNfo(const string &dir, const string &dest,const char* name) {
+bool copyNfo(const string dir, const string &dest,const char* name) {
 	// copyFile Function
 	//http://msdn.microsoft.com/en-us/library/aa363851%28VS.85%29.aspx
 
@@ -180,7 +180,7 @@ bool findFiles(string dir, bool pack,void (*process)(const string&,const string&
 #endif
 		// deal with packs
 		if (pack && Findz.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY && !isBannedFolder(filename)) {
-			findFiles(dir+filename,true,process,extension,filename);
+			findFiles(dir+filename,true,process,extension);
 		}
 		
 

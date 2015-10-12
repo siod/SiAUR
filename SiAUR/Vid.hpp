@@ -7,11 +7,23 @@
 class VidBase {
 	friend inline bool operator==(const VidBase& rhs,const VidBase& lhs);
 public:
-	VidBase(const std::string &_name, const std::string &rar, const std::string &Dloc,int s = -1, int e = -1)
-		:UDloc( Dloc ), rarLoc(rar),rarDir(""),name(_name),sceneName(""), sourceDir(""),season(s), ep(e) {}
+	VidBase(const std::string &_name,
+		const std::string &rar,
+		const std::string &Dloc,
+		int y = -1,
+		int s = -1,
+		int e = -1)
+		:UDloc( Dloc ), rarLoc(rar),rarDir(""),name(_name),
+		sceneName(""), sourceDir(""),
+		year(y),season(s), ep(e) {}
 
-	const std::string& getName() const { return name; }
-
+	std::string getName() const { 
+		if (year == -1) {
+			return name;
+		}
+		return getNameWithYear();
+	}
+	std::string getNameWithYear() const;
 	std::string RarLoc(VidBase& video ) const;
 	std::string RarLoc() const;
 
@@ -37,6 +49,7 @@ public:
 	std::string sceneName;
 	std::string sourceDir;
 	//season number and ep number
+	int year;
 	int season,ep;
 };
 

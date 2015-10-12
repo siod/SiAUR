@@ -8,7 +8,8 @@ public:
 	   	int season, int ep,
 	   	std::string urloc = "Tv Shows" FILE_SEPERATOR )
 	{
-		return VidBase(str,rar,urloc,season,ep);
+		const int year(-1);
+		return VidBase(str,rar,urloc,year,season,ep);
 	}
 
 	static std::string URLoc(const VidBase&);

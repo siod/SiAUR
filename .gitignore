@@ -27,6 +27,7 @@
 *.tmp
 *.vspscc
 .builds
+*.o
 
 # Visual C++ cache files
 ipch/

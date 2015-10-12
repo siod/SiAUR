@@ -14,10 +14,10 @@ ifeq ($(UNAME), Darwin)
 endif
 
 all: unix.o Movie.o Show.o Vid.o
-	$(CC)  $(CFLAGS) main.cpp unix.o Movie.o Show.o Vid.o $(CLIBS) -o main
+	$(CC) $(CFLAGS) main.cpp unix.o Movie.o Show.o Vid.o $(CLIBS) -o main
 
 test: unix.o Movie.o Show.o Vid.o tests.o
-	$(CC)  $(CFLAGS) main.cpp tests.o unix.o Movie.o Show.o Vid.o $(CLIBS) -o test
+	$(CC) $(CFLAGS) main.cpp tests.o unix.o Movie.o Show.o Vid.o $(CLIBS) -o test
 
 tests.o: tests.cpp
 	$(CC) $(CFLAGS) -c tests.cpp
