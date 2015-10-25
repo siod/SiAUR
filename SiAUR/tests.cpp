@@ -36,6 +36,7 @@ bool test() {
 	singleShowTest("Doctor_Who_2005.6x01.The_Impossible_Astronaut_Part1.720p_HDTV_x264-FoV","Doctor Who 2005",6,1);
 	singleShowTest("Supernatural.s06e21-e22.720p.hdtv.x264-2hd","Supernatural",6,21);
 	singleShowTest("Burn.Notice.S06E17E18.720p.HDTV.x264-IMMERSE","Burn Notice",6,17);
+	singleShowTest("The.Daily.Show.2015.10.22.John.Harwood.720p.HDTV.x264-CROOKS","The Daily Show",2015,1);
 
 	cout << "\n\nRename testing.\n\n\n";
 	singleShowTest("Dr_Who_2005.6x01.The_Impossible_Astronaut_Part1.720p_HDTV_x264-FoV","Doctor Who 2005",6,1);

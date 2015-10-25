@@ -68,6 +68,7 @@ section_map* globalsMap(NULL);
 section_map* showsMap(NULL);
 section_map* moviesMap(NULL);
 regex showRegex;
+regex showDailyRegex;
 regex movieRegex;
 
 //OS  defines
@@ -100,9 +101,6 @@ inline bool checkDelimiters(string& input) {
 	return (vidType.find(input) != vidType.end());
 }
 
-
-
-
 SiString stringToLower(const SiString& input) {
 	SiString lowercase(input);
 	for (size_t i = 0; i !=  lowercase.length();i++) {
@@ -122,9 +120,7 @@ string convert_name(string& original_name,section_map& conversions) {
 }
 
 string checkForVideoType(const char* str,const string& failString) {
-#ifndef NDEBUG
-	std::cout <<"fallback video decoding: '" << str << "'\n";
-#endif
+	LogLine("Fallback video decoding: '" + string(str) + "'",Logging::LOG_DEBUG);
 	string name(str);
 	std::vector<string> tokens;
 	size_t sPos(0);
@@ -159,22 +155,33 @@ string checkForVideoType(const char* str,const string& failString) {
 	return failString;
 }
 
-VidBase regSearch(const char* str,const string &rar) {
+VidBase regSearch(const char* encoded_name,const string &rar) {
 	string showname;
 	int season,ep;
 	//regex string that decodes tv show name and removes year from show name
 	// "([a-z0-9\._-]+)\.s?([0-9]{1,3})(?:ep?|x)([0-9]{1,3})(?:[\._-]*((ep?)|x)[0-9]{1,3})?(\.)"
+	string season_s;
+	string episode_s;
 
-	string decoded_showinfo;
-	if (regex_search(str,showRegex)) {
-		decoded_showinfo = regex_replace(string(str),showRegex,
-										string("$1 $2 $3")/*format*/,
-										regex_consts::match_default | regex_consts::format_no_copy);
+	string str(encoded_name);
+	smatch m;
+	if (regex_search(str,m,showRegex) && m.size() >= 4) {
+		showname = m[1];
+		season_s = m[2];
+		episode_s = m[3];
+		//If this was a double ep, the 2nd ep's number would be in m[4]
+	} else if (regex_search(str,m,showDailyRegex) && m.size() >= 4) {
+		showname = m[1];
+		//Map season to year?
+		season_s = m[2];
+		//Episode isn't currently used in determining unrar location
+		episode_s = "1";
 	} else {
-		decoded_showinfo = "AAA-Uknown 1 1";
+		//Fallback 
+		return Show::create("AAA Unkown",rar,1,1);
 	}
-	std::stringstream lol(decoded_showinfo);
-	lol >> showname >> season >> ep;
+	season = atoi(season_s.c_str());
+	ep = atoi(episode_s.c_str());
 
 	showname = regex_replace(showname,regex("[\\._-]+"),string(" "));
 	showname = convert_name(showname,*showsMap);
@@ -357,8 +364,18 @@ bool setup(const string& iniName) {
 	moviesMap = config.safe_get_section("movie_conversions");
 
 	VidBase::initBaseLoc((*globalsMap)["base_loc"]);
-	showRegex = regex((*globalsMap)["show_regex"], regex_consts::ECMAScript | regex_consts::icase);
-	movieRegex = regex((*globalsMap)["movie_regex"], regex_consts::ECMAScript | regex_consts::icase);
+	string raw = (*globalsMap)["show_regex"];
+	if (raw != "") {
+		showRegex = regex(raw, regex_consts::ECMAScript | regex_consts::icase);
+	}
+	raw = (*globalsMap)["show_daily_regex"];
+	if (raw != "") {
+		showDailyRegex = regex(raw, regex_consts::ECMAScript | regex_consts::icase);
+	}
+	raw = (*globalsMap)["movie_regex"];
+	if (raw != "") {
+		movieRegex = regex(raw, regex_consts::ECMAScript | regex_consts::icase);
+	}
 	setUnRarLoc((*globalsMap)["unrar"]);
 
 	return true;
